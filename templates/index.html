@@ -1,0 +1,6 @@
+<h1>Posts</h1>
+
+{{ range .Pages }}
+  <a href="/view/{{.Title}}">{{ .Title }}</a>
+  [<a href="/edit/{{.Title}}">edit</a>]
+{{ end }}

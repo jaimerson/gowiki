@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
+	"strings"
 )
 
 var validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
@@ -16,6 +17,10 @@ var templates = template.Must(
 type Page struct {
 	Title string
 	Body  []byte
+}
+
+type IndexPage struct {
+	Pages []Page
 }
 
 func (p *Page) save() error {
@@ -41,6 +46,34 @@ func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
 		return
 	}
 	http.Redirect(w, r, "/view/"+title, http.StatusFound)
+}
+
+func indexHandler(w http.ResponseWriter, r *http.Request) {
+	files, err1 := ioutil.ReadDir("data")
+
+	if err1 != nil {
+		fmt.Println(err1)
+	}
+
+	pages := make([]Page, 0)
+
+	for _, file := range files {
+		newTitle := strings.Replace(file.Name(), ".txt", "", -1)
+		newPage, err := loadPage(newTitle)
+
+		if err != nil {
+			fmt.Println(err)
+		}
+		pages = append(pages, *newPage)
+	}
+
+	index := &IndexPage{Pages: pages}
+
+	err2 := templates.ExecuteTemplate(w, "index.html", index)
+
+	if err2 != nil {
+		http.Error(w, err2.Error(), http.StatusInternalServerError)
+	}
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
@@ -80,6 +113,7 @@ func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.Handl
 
 func main() {
 	fmt.Print("Starting server at localhost:8080\n")
+	http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/view/", makeHandler(viewHandler))
 	http.HandleFunc("/edit/", makeHandler(editHandler))
 	http.HandleFunc("/save/", makeHandler(saveHandler))
